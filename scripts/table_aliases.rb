@@ -31,12 +31,114 @@ bin/rails db:seed
 
 bin/rails c
 
-
+paths_sources = []
 query = Lease
+
+path = 'objekt'
+query = query.joins(:objekt)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'objekt.address'
+query = query.joins(objekt: :address)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'objekt.owner'
+query = query.joins(objekt: :owner)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'renter'
+query = query.joins(:renter)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'renter.address'
+query = query.joins(renter: :address)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'subletters'
+query = query.joins(:subletters)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'subletters.address'
+query = query.joins(subletters: :address)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'prior_lease'
 query = query.joins(:prior_lease)
-query = query.joins(updated_leases: {renter: :language})
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'prior_lease.renter'
+query = query.joins(prior_lease: :renter)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'prior_lease.renter.address'
+query = query.joins(prior_lease: {renter: :address})
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'updated_leases'
+query = query.joins(:updated_leases)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'updated_leases.renter'
+query = query.joins(updated_leases: :renter)
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+path = 'updated_leases.renter.address'
+query = query.joins(updated_leases: {renter: :address})
+paths_sources << {path: path, alias: query.arel.join_sources.last.right.expr.left.relation.name}
+
+
+query = query.joins(:subletters)
+query = query.joins(:prior_lease)
+query = query.joins(:updated_leases)
 query = query.joins(renter: [:address, :language])
 query = query.joins(subletters: [:address, :language])
+query = query.joins(updated_leases: {renter: [:address, :language]})
+query = query.joins(updated_leases: {subletters: [:address, :language]})
+
+query = query.joins(prior_lease: {renter: [:address, :language]})
+query = query.joins(prior_lease: {subletters: [:address, :language]})
+
+query.joins_values
+=> [:objekt,
+ :renter,
+ :subletters,
+ :prior_lease,
+ :updated_leases,
+ {:renter=>[:address, :language]},
+ {:subletters=>[:address, :language]},
+ {:prior_lease=>{:renter=>[:address, :language]}},
+ {:prior_lease=>{:subletters=>[:address, :language]}}]
+
+
+query.arel.join_sources.count
+ => 17
+
+query.to_sql.split(' INNER JOIN ').count
+=> 18
+
+@right.expr.left.right '.\"id\" =' is a join_table / discard
+
+@left.left           @left.right  @right.expr.left.left  @right.expr.left.right
+"\"lease_subletters\"            ON \"lease_subletters\".\"lease_id\"           = \"leases\".\"id\"",
+
+[9] pry(main)> query.to_sql.split(' INNER JOIN ')
+=> ["SELECT \"leases\".* FROM \"leases\"",
+ "\"objekts\" ON \"objekts\".\"id\" = \"leases\".\"objekt_id\"",
+ "\"people\" ON \"people\".\"id\" = \"leases\".\"renter_id\"",
+ "\"addresses\" ON \"addresses\".\"id\" = \"people\".\"address_id\"",
+ "\"languages\" ON \"languages\".\"id\" = \"people\".\"language_id\"",
+ "\"lease_subletters\" ON \"lease_subletters\".\"lease_id\" = \"leases\".\"id\"",
+ "\"people\" \"subletters_leases\" ON \"subletters_leases\".\"id\" = \"lease_subletters\".\"subletter_id\"",
+ "\"addresses\" \"addresses_people\" ON \"addresses_people\".\"id\" = \"subletters_leases\".\"address_id\"",
+ "\"languages\" \"languages_people\" ON \"languages_people\".\"id\" = \"subletters_leases\".\"language_id\"",
+ "\"leases\" \"prior_leases_leases\" ON \"prior_leases_leases\".\"id\" = \"leases\".\"prior_lease_id\"",
+ "\"people\" \"renters_leases\" ON \"renters_leases\".\"id\" = \"prior_leases_leases\".\"renter_id\"",
+ "\"addresses\" \"addresses_people_2\" ON \"addresses_people_2\".\"id\" = \"renters_leases\".\"address_id\"",
+ "\"languages\" \"languages_people_2\" ON \"languages_people_2\".\"id\" = \"renters_leases\".\"language_id\"",
+ "\"leases\" \"updated_leases_leases\" ON \"updated_leases_leases\".\"prior_lease_id\" = \"leases\".\"id\""]
+
+query = query.joins(updated_leases: {renter: [:address, :language]})
+query = query.joins(updated_leases: {subletters: [:address, :language]})
 query = query.joins(objekt: [:address, {owner: [:address, :language]}])
 
 
